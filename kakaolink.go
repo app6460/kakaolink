@@ -3,7 +3,7 @@ package kakaolink
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
+	"html"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -54,14 +54,14 @@ type (
 func (k *kakaolink) Login() {
 	client := webkakao.New(k.email, k.password, "https://accounts.kakao.com/weblogin/account/info", k.keepLogin)
 	client.Login()
-	k.cookies = client.Cookies()
+	k.cookies = append(k.cookies, client.Cookies()...)
 }
 
 func (k *kakaolink) getKA() string {
 	if k.url == "" {
 		k.url = "https://open.kakao.com"
 	}
-	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.PathEscape(k.url)
+	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.QueryEscape(k.url)
 }
 
 func (k *kakaolink) getPicker(config *SendData) {
@@ -81,6 +81,8 @@ func (k *kakaolink) getPicker(config *SendData) {
 		req.AddCookie(v)
 	}
 
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
 	client := &http.Client{}
 	res, err := client.Do(req)
 
@@ -99,7 +101,7 @@ func (k *kakaolink) getPicker(config *SendData) {
 	linkData := linkDataReg.FindStringSubmatch(body)
 
 	k.csrf = csrf[1]
-	json.Unmarshal([]byte(linkData[1]), &k.linkData)
+	json.Unmarshal([]byte(html.UnescapeString(linkData[1])), &k.linkData)
 }
 
 func (k *kakaolink) getChats() *ChatsRes {
@@ -143,7 +145,7 @@ func (k *kakaolink) sendReq(room string, roomData *ChatsRes) {
 	}
 
 	if id == "" || memberCount == 0 {
-		panic(errors.New("no room name!"))
+		return
 	}
 
 	data, _ := json.Marshal(map[string]interface{}{
@@ -176,7 +178,7 @@ func (k *kakaolink) sendReq(room string, roomData *ChatsRes) {
 }
 
 func (k *kakaolink) SendLink(room string, options *SendData) {
-	if options.Data["link_ver"] == "" {
+	if _, ok := options.Data["link_ver"]; !ok {
 		options.Data["link_ver"] = "4.0"
 	}
 	if options.Type == "" {
