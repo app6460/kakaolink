@@ -18,7 +18,7 @@ var (
 )
 
 type (
-	kakaolink struct {
+	Kakaolink struct {
 		email     string
 		password  string
 		url       string
@@ -51,20 +51,20 @@ type (
 	}
 )
 
-func (k *kakaolink) Login() {
+func (k *Kakaolink) Login() {
 	client := webkakao.New(k.email, k.password, "https://accounts.kakao.com/weblogin/account/info", k.keepLogin)
 	client.Login()
 	k.cookies = append(k.cookies, client.Cookies()...)
 }
 
-func (k *kakaolink) getKA() string {
+func (k *Kakaolink) getKA() string {
 	if k.url == "" {
 		k.url = "https://open.kakao.com"
 	}
 	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.QueryEscape(k.url)
 }
 
-func (k *kakaolink) getPicker(config *SendData) {
+func (k *Kakaolink) getPicker(config *SendData) {
 	params, _ := json.Marshal(config.Data)
 
 	data := url.Values{}
@@ -104,7 +104,7 @@ func (k *kakaolink) getPicker(config *SendData) {
 	json.Unmarshal([]byte(html.UnescapeString(linkData[1])), &k.linkData)
 }
 
-func (k *kakaolink) getChats() *ChatsRes {
+func (k *Kakaolink) getChats() *ChatsRes {
 	req, _ := http.NewRequest("GET", "https://sharer.kakao.com/api/talk/chats", nil)
 
 	for _, v := range k.cookies {
@@ -131,7 +131,7 @@ func (k *kakaolink) getChats() *ChatsRes {
 	return &chats
 }
 
-func (k *kakaolink) sendReq(room string, roomData *ChatsRes) {
+func (k *Kakaolink) sendReq(room string, roomData *ChatsRes) {
 	var (
 		id          string
 		memberCount int
@@ -177,7 +177,7 @@ func (k *kakaolink) sendReq(room string, roomData *ChatsRes) {
 	defer res.Body.Close()
 }
 
-func (k *kakaolink) SendLink(room string, options *SendData) {
+func (k *Kakaolink) SendLink(room string, options *SendData) {
 	if _, ok := options.Data["link_ver"]; !ok {
 		options.Data["link_ver"] = "4.0"
 	}
@@ -190,8 +190,8 @@ func (k *kakaolink) SendLink(room string, options *SendData) {
 	k.sendReq(room, res)
 }
 
-func New(email, pass, url, apiKey string, options *Options) *kakaolink {
-	instance := kakaolink{}
+func New(email, pass, url, apiKey string, options *Options) *Kakaolink {
+	instance := Kakaolink{}
 	instance.email = email
 	instance.password = pass
 	instance.url = url
