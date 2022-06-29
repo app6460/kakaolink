@@ -34,8 +34,10 @@ type (
 	}
 
 	SendData struct {
-		Type string
-		Data map[string]interface{}
+		Type   string
+		Data   map[string]interface{}
+		ApiKey string
+		Url    string
 	}
 
 	ChatsRes struct {
@@ -57,11 +59,17 @@ func (k *Kakaolink) Login() {
 	k.cookies = append(k.cookies, client.Cookies()...)
 }
 
-func (k *Kakaolink) getKA() string {
+func (k *Kakaolink) getKA(config *SendData) string {
+	var kurl string
 	if k.url == "" {
 		k.url = "https://open.kakao.com"
 	}
-	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.QueryEscape(k.url)
+	if config.Url != "" {
+		kurl = config.Url
+	} else {
+		kurl = k.url
+	}
+	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.QueryEscape(kurl)
 }
 
 func (k *Kakaolink) getPicker(config *SendData) {
@@ -69,10 +77,14 @@ func (k *Kakaolink) getPicker(config *SendData) {
 
 	data := url.Values{}
 
-	data.Add("app_key", k.apiKey)
+	if config.ApiKey != "" {
+		data.Add("appKey", config.ApiKey)
+	} else {
+		data.Add("app_key", k.apiKey)
+	}
 	data.Add("validation_action", config.Type)
 	data.Add("validation_params", string(params))
-	data.Add("ka", k.getKA())
+	data.Add("ka", k.getKA(config))
 	data.Add("lcba", "")
 
 	req, _ := http.NewRequest("POST", "https://sharer.kakao.com/talk/friends/picker/link", bytes.NewBuffer([]byte(data.Encode())))
@@ -104,7 +116,7 @@ func (k *Kakaolink) getPicker(config *SendData) {
 	json.Unmarshal([]byte(html.UnescapeString(linkData[1])), &k.linkData)
 }
 
-func (k *Kakaolink) getChats() *ChatsRes {
+func (k *Kakaolink) getChats(config *SendData) *ChatsRes {
 	req, _ := http.NewRequest("GET", "https://sharer.kakao.com/api/talk/chats", nil)
 
 	for _, v := range k.cookies {
@@ -113,7 +125,11 @@ func (k *Kakaolink) getChats() *ChatsRes {
 
 	req.Header.Add("Referer", "https://sharer.kakao.com/talk/friends/picker/link")
 	req.Header.Add("Csrf-Token", k.csrf)
-	req.Header.Add("App-Key", k.apiKey)
+	if config.ApiKey != "" {
+		req.Header.Add("appKey", config.ApiKey)
+	} else {
+		req.Header.Add("app_key", k.apiKey)
+	}
 
 	client := &http.Client{}
 	res, err := client.Do(req)
@@ -131,7 +147,7 @@ func (k *Kakaolink) getChats() *ChatsRes {
 	return &chats
 }
 
-func (k *Kakaolink) sendReq(room string, roomData *ChatsRes) {
+func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) {
 	var (
 		id          string
 		memberCount int
@@ -165,7 +181,11 @@ func (k *Kakaolink) sendReq(room string, roomData *ChatsRes) {
 	req.Header.Add("Referer", "https://sharer.kakao.com/talk/friends/picker/link")
 	req.Header.Add("Content-Type", "application/json;charset=utf-8")
 	req.Header.Add("Csrf-Token", k.csrf)
-	req.Header.Add("App-Key", k.apiKey)
+	if config.ApiKey != "" {
+		req.Header.Add("appKey", config.ApiKey)
+	} else {
+		req.Header.Add("app_key", k.apiKey)
+	}
 
 	client := &http.Client{}
 	res, err := client.Do(req)
@@ -186,8 +206,8 @@ func (k *Kakaolink) SendLink(room string, options *SendData) {
 	}
 
 	k.getPicker(options)
-	res := k.getChats()
-	k.sendReq(room, res)
+	res := k.getChats(options)
+	k.sendReq(room, res, options)
 }
 
 func New(email, pass, url, apiKey string, options *Options) *Kakaolink {
