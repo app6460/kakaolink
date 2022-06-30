@@ -3,6 +3,7 @@ package kakaolink
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html"
 	"io/ioutil"
 	"net/http"
@@ -72,7 +73,7 @@ func (k *Kakaolink) getKA(config *SendData) string {
 	return "sdk/1.42.0 os/javascript lang/ko-KR device/Win32 origin/" + url.QueryEscape(kurl)
 }
 
-func (k *Kakaolink) getPicker(config *SendData) {
+func (k *Kakaolink) getPicker(config *SendData) error {
 	params, _ := json.Marshal(config.Data)
 
 	data := url.Values{}
@@ -99,7 +100,7 @@ func (k *Kakaolink) getPicker(config *SendData) {
 	res, err := client.Do(req)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	defer res.Body.Close()
@@ -114,9 +115,10 @@ func (k *Kakaolink) getPicker(config *SendData) {
 
 	k.csrf = csrf[1]
 	json.Unmarshal([]byte(html.UnescapeString(linkData[1])), &k.linkData)
+	return nil
 }
 
-func (k *Kakaolink) getChats(config *SendData) *ChatsRes {
+func (k *Kakaolink) getChats(config *SendData) (*ChatsRes, error) {
 	req, _ := http.NewRequest("GET", "https://sharer.kakao.com/api/talk/chats", nil)
 
 	for _, v := range k.cookies {
@@ -135,7 +137,7 @@ func (k *Kakaolink) getChats(config *SendData) *ChatsRes {
 	res, err := client.Do(req)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	defer res.Body.Close()
@@ -144,10 +146,10 @@ func (k *Kakaolink) getChats(config *SendData) *ChatsRes {
 	chats := ChatsRes{}
 	json.Unmarshal(body, &chats)
 
-	return &chats
+	return &chats, nil
 }
 
-func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) {
+func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) error {
 	var (
 		id          string
 		memberCount int
@@ -161,7 +163,7 @@ func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) {
 	}
 
 	if id == "" || memberCount == 0 {
-		return
+		return fmt.Errorf("room not found")
 	}
 
 	data, _ := json.Marshal(map[string]interface{}{
@@ -191,13 +193,14 @@ func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) {
 	res, err := client.Do(req)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	defer res.Body.Close()
+	return nil
 }
 
-func (k *Kakaolink) SendLink(room string, options *SendData) {
+func (k *Kakaolink) SendLink(room string, options *SendData) error {
 	if _, ok := options.Data["link_ver"]; !ok {
 		options.Data["link_ver"] = "4.0"
 	}
@@ -205,9 +208,19 @@ func (k *Kakaolink) SendLink(room string, options *SendData) {
 		options.Type = "custom"
 	}
 
-	k.getPicker(options)
-	res := k.getChats(options)
-	k.sendReq(room, res, options)
+	err := k.getPicker(options)
+	if err != nil {
+		return err
+	}
+	res, err := k.getChats(options)
+	if err != nil {
+		return err
+	}
+	err = k.sendReq(room, res, options)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func New(email, pass, url, apiKey string, options *Options) *Kakaolink {
