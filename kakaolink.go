@@ -128,9 +128,9 @@ func (k *Kakaolink) getChats(config *SendData) (*ChatsRes, error) {
 	req.Header.Add("Referer", "https://sharer.kakao.com/talk/friends/picker/link")
 	req.Header.Add("Csrf-Token", k.csrf)
 	if config.ApiKey != "" {
-		req.Header.Add("app_key", config.ApiKey)
+		req.Header.Add("App-Key", config.ApiKey)
 	} else {
-		req.Header.Add("app_key", k.apiKey)
+		req.Header.Add("App-Key", k.apiKey)
 	}
 
 	client := &http.Client{}
@@ -184,9 +184,9 @@ func (k *Kakaolink) sendReq(room string, roomData *ChatsRes, config *SendData) e
 	req.Header.Add("Content-Type", "application/json;charset=utf-8")
 	req.Header.Add("Csrf-Token", k.csrf)
 	if config.ApiKey != "" {
-		req.Header.Add("app_key", config.ApiKey)
+		req.Header.Add("App-Key", config.ApiKey)
 	} else {
-		req.Header.Add("app_key", k.apiKey)
+		req.Header.Add("App-Key", k.apiKey)
 	}
 
 	client := &http.Client{}
